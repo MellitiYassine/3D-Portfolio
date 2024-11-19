@@ -1,195 +1,25 @@
-import { GUI } from 'dat.gui';
-import Stats from 'stats.js';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { AnimationMixer, AnimationAction } from 'three';
 
-// Scene Setup
-const scene = new THREE.Scene();
-scene.add(new THREE.AxesHelper(5));
+console.clear();
 
-// Lighting
-const light = new THREE.PointLight(0xffffff, 1000);
-light.position.set(2.5, 7.5, 15);
-scene.add(light);
+var scene = new THREE.Scene();
+scene.background = new THREE.Color('gainsboro');
 
-// Camera Setup
-const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
-camera.position.set(1.5, 1.9, 1.9);
+var camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight);
+camera.position.set(0, 100, 100);
 
-// Renderer Setup
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth, window.innerHeight);
+var renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Controls Setup
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.target.set(0, 1, 0);
-
-// Stats Setup
-const stats = new Stats();
-document.body.appendChild(stats.dom);
-
-// Variables
-let mixer: THREE.AnimationMixer;
-const animationActions: THREE.AnimationAction[] = [];
-let activeAction: THREE.AnimationAction;
-let lastAction: THREE.AnimationAction;
-const movement = {
-  forward: false,
-  backward: false,
-  left: false,
-  right: false,
-};
-const movementSpeed = 5;
-const rotationSpeed = 6;
-let lastPosition = new THREE.Vector3();
-let character: THREE.Object3D | undefined;
-
-// Loaders
-const fbxLoader: FBXLoader = new FBXLoader();
-
-// Event Listeners for Movement
-window.addEventListener('keydown', handleKeyDown);
-window.addEventListener('keyup', handleKeyUp);
-window.addEventListener('resize', onWindowResize, false);
-
-// Animation Controls
-const animations = {
-  idle: () => setAction(animationActions[0]),
-  slowRun: () => setAction(animationActions[1]),
-};
-const gui = new GUI();
-const animationsFolder = gui.addFolder('Animations');
-animationsFolder.open();
-
-// Functions
-
-function handleKeyDown(event: KeyboardEvent): void {
-  switch (event.code) {
-    case 'ArrowUp':
-    case 'KeyW':
-      movement.forward = true;
-      break;
-    case 'ArrowDown':
-    case 'KeyS':
-      movement.backward = true;
-      break;
-    case 'ArrowLeft':
-    case 'KeyA':
-      movement.left = true;
-      break;
-    case 'ArrowRight':
-    case 'KeyD':
-      movement.right = true;
-      break;
-  }
-}
-
-function handleKeyUp(event: KeyboardEvent): void {
-  switch (event.code) {
-    case 'ArrowUp':
-    case 'KeyW':
-      movement.forward = false;
-      break;
-    case 'ArrowDown':
-    case 'KeyS':
-      movement.backward = false;
-      break;
-    case 'ArrowLeft':
-    case 'KeyA':
-      movement.left = false;
-      break;
-    case 'ArrowRight':
-    case 'KeyD':
-      movement.right = false;
-      break;
-  }
-}
-
-function updateCharacterPosition(delta: number): void {
-  if (!character) return;
-
-  if (movement.forward) character.position.z -= movementSpeed * delta;
-  if (movement.backward) character.position.z += movementSpeed * delta;
-  if (movement.left) character.rotation.y += rotationSpeed * delta;
-  if (movement.right) character.rotation.y -= rotationSpeed * delta;
-}
-
-function updateCharacterAnimation(): void {
-  if (!character || !mixer) return;
-
-  const currentPosition = character.position.clone();
-  const isMoving = !currentPosition.equals(lastPosition);
-
-  if (isMoving) {
-    setAction(animationActions[1]); // 'Run' animation
-  } else {
-    setAction(animationActions[0]); // 'Idle' animation
-  }
-
-  lastPosition.copy(currentPosition);
-}
-
-function setAction(toAction: THREE.AnimationAction): void {
-  if (toAction !== activeAction) {
-    lastAction = activeAction;
-    activeAction = toAction;
-    lastAction.fadeOut(1);
-    activeAction.reset();
-    activeAction.fadeIn(1);
-    activeAction.play();
-  }
-}
-
-function onWindowResize(): void {
-  camera.aspect = window.innerWidth / window.innerHeight;
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  render();
-}
+  renderer.setSize(innerWidth, innerHeight);
+});
 
-function render(): void {
-  renderer.render(scene, camera);
-}
-
-// Load Character and Animations
-fbxLoader.load(
-  'models/Idle.fbx',
-  (object) => {
-    object.scale.set(0.005, 0.005, 0.005);
-    character = object;
-
-    mixer = new THREE.AnimationMixer(object);
-
-    const animationAction = mixer.clipAction(
-      (object as THREE.Object3D).animations[0]
-    );
-    animationActions.push(animationAction);
-    animationsFolder.add(animations, 'idle');
-    activeAction = animationAction;
-    activeAction.play();
-    scene.add(object);
-
-    fbxLoader.load('models/SlowRun.fbx', (object) => {
-      const animationAction = mixer.clipAction(
-        (object as THREE.Object3D).animations[0]
-      );
-      animationActions.push(animationAction);
-      animationsFolder.add(animations, 'slowRun');
-    });
-  },
-  (xhr) => console.log((xhr.loaded / xhr.total) * 100 + '% loaded'),
-  (error) => console.error(error)
-);
-
-// Background Setup
 const canvas = document.createElement('canvas');
 const context = canvas.getContext('2d')!;
 const gradient = context.createLinearGradient(0, 0, 0, canvas.height);
@@ -203,23 +33,148 @@ context.fillRect(0, 0, canvas.width, canvas.height);
 const texture = new THREE.CanvasTexture(canvas);
 scene.background = texture;
 
-// Animation Loop
-const clock = new THREE.Clock();
+const groundGeometry = new THREE.PlaneGeometry(10, 10);
+const groundMaterial = new THREE.MeshBasicMaterial({
+  color: 0x808080,
+  side: THREE.DoubleSide,
+});
+const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+ground.rotation.x = -Math.PI / 2;
+scene.add(ground);
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(10, 10, 10);
+scene.add(light);
 
-function animate(): void {
-  requestAnimationFrame(animate);
+const CAMERA_DISTANCE = 10,
+  CAMERA_ALTITUDE = 3,
+  AXIS_Y = new THREE.Vector3(0, 1, 0);
 
-  controls.update();
+var keyHash: Record<string, boolean> = {};
 
-  const delta = clock.getDelta();
+window.addEventListener('keydown', (event) => (keyHash[event.key] = true));
+window.addEventListener('keyup', (event) => (keyHash[event.key] = false));
 
-  if (mixer) mixer.update(delta);
+function lerpAngle(a: number, b: number, k: number) {
+  if (a - b > Math.PI) b += 2 * Math.PI;
+  if (b - a > Math.PI) a += 2 * Math.PI;
 
-  updateCharacterPosition(delta);
-  updateCharacterAnimation();
-
-  render();
-  stats.update();
+  return THREE.MathUtils.lerp(a, b, k) % (2 * Math.PI);
 }
 
-animate();
+let character: THREE.Object3D;
+let characterSpeed = 0;
+let characterDir = new THREE.Vector3(0, 0, -1);
+let mixer: AnimationMixer;
+let greetingAction: AnimationAction;
+let idleAction: AnimationAction;
+let slowRunAction: AnimationAction;
+let fastRunAction: AnimationAction;
+let activeAction: AnimationAction;
+let hasMoved = false;
+
+const fbxLoader = new FBXLoader();
+fbxLoader.load(
+  'models/Ty.fbx',
+  (fbx) => {
+    character = fbx;
+    character.scale.set(0.01, 0.01, 0.01);
+    scene.add(character);
+
+    mixer = new AnimationMixer(character);
+
+    fbxLoader.load('animations/Greeting.fbx', (run) => {
+      greetingAction = mixer.clipAction(run.animations[0]);
+      greetingAction.play();
+      activeAction = greetingAction;
+    });
+
+    fbxLoader.load('animations/Idle.fbx', (idle) => {
+      idleAction = mixer.clipAction(idle.animations[0]);
+      idleAction.play();
+      activeAction = idleAction;
+    });
+
+    fbxLoader.load('animations/SlowRun.fbx', (run) => {
+      slowRunAction = mixer.clipAction(run.animations[0]);
+    });
+
+    fbxLoader.load('animations/FastRun.fbx', (FastRun) => {
+      fastRunAction = mixer.clipAction(FastRun.animations[0]);
+    });
+  },
+  (progress) => {
+    console.log(`Loading: ${(progress.loaded / progress.total) * 100}%`);
+  },
+  (error) => {
+    console.error('Error loading FBX:', error);
+  }
+);
+
+function switchAnimation(toAction: AnimationAction) {
+  if (activeAction !== toAction) {
+    activeAction.fadeOut(0.5);
+    toAction.reset().fadeIn(0.5).play();
+    activeAction = toAction;
+  }
+}
+
+function animationLoop(t: number) {
+  characterDir.set(0, 0, 0);
+
+  const forward = new THREE.Vector3();
+  camera.getWorldDirection(forward);
+  forward.y = 0;
+  forward.normalize();
+
+  const right = new THREE.Vector3();
+  right.crossVectors(forward, AXIS_Y).normalize();
+
+  if (keyHash['ArrowUp']) characterDir.add(forward);
+  if (keyHash['ArrowDown']) characterDir.sub(forward);
+  if (keyHash['ArrowRight']) characterDir.add(right);
+  if (keyHash['ArrowLeft']) characterDir.sub(right);
+
+  if (characterDir.length() > 0) {
+    hasMoved = true;
+    if (keyHash['Shift']) {
+      characterSpeed = 2;
+      if (fastRunAction) switchAnimation(fastRunAction);
+    } else {
+      characterSpeed = 1;
+      if (slowRunAction) switchAnimation(slowRunAction);
+    }
+    characterDir.normalize();
+  } else {
+    characterSpeed *= 0.7;
+    if (!hasMoved && greetingAction) {
+      switchAnimation(greetingAction);
+    } else if (idleAction) {
+      switchAnimation(idleAction);
+    }
+  }
+
+  if (character) {
+    character.position.addScaledVector(characterDir, characterSpeed * 0.03);
+
+    const targetRotationY = Math.atan2(characterDir.x, characterDir.z);
+    character.rotation.y = lerpAngle(
+      character.rotation.y,
+      targetRotationY,
+      0.1
+    );
+
+    camera.position.lerp(
+      character.position
+        .clone()
+        .add(new THREE.Vector3(0, CAMERA_ALTITUDE, CAMERA_DISTANCE)),
+      0.01
+    );
+    camera.lookAt(character.position);
+  }
+
+  if (mixer) mixer.update(0.016);
+
+  renderer.render(scene, camera);
+}
+
+renderer.setAnimationLoop(animationLoop);
