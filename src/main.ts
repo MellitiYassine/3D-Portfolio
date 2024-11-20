@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { AnimationMixer, AnimationAction } from 'three';
 
 console.clear();
@@ -33,20 +34,14 @@ context.fillRect(0, 0, canvas.width, canvas.height);
 const texture = new THREE.CanvasTexture(canvas);
 scene.background = texture;
 
-const groundGeometry = new THREE.PlaneGeometry(10, 10);
-const groundMaterial = new THREE.MeshBasicMaterial({
-  color: 0x808080,
-  side: THREE.DoubleSide,
-});
-const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-ground.rotation.x = -Math.PI / 2;
-scene.add(ground);
-const light = new THREE.DirectionalLight(0xffffff, 1);
+
+
+const light = new THREE.AmbientLight(0xffffff, 3);
 light.position.set(10, 10, 10);
 scene.add(light);
 
-const CAMERA_DISTANCE = 10,
-  CAMERA_ALTITUDE = 3,
+const CAMERA_DISTANCE = 20,
+  CAMERA_ALTITUDE = 6,
   AXIS_Y = new THREE.Vector3(0, 1, 0);
 
 var keyHash: Record<string, boolean> = {};
@@ -71,6 +66,68 @@ let slowRunAction: AnimationAction;
 let fastRunAction: AnimationAction;
 let activeAction: AnimationAction;
 let hasMoved = false;
+let logo: any;
+
+
+
+const textureLoader = new THREE.TextureLoader();
+textureLoader.load('textures/ADS-logo.png', (texture) => {
+    const material = new THREE.MeshBasicMaterial({ map: texture });
+    const geometry = new THREE.PlaneGeometry(2, 2);
+    logo = new THREE.Mesh(geometry, material);
+    logo.position.set(5, 1, 5);
+    scene.add(logo);
+});
+
+const clock = new THREE.Clock();
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+window.addEventListener('mousemove', onMouseMove, false);
+window.addEventListener('click', onMouseClick, false);
+
+function onMouseMove(event: any) {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+
+    const intersects = raycaster.intersectObject(logo);
+
+    if (intersects.length > 0) {
+        document.body.style.cursor = 'pointer'; 
+    } else {
+        document.body.style.cursor = 'auto'; 
+    }
+}
+
+function onMouseClick(event: any) {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+
+    const intersects = raycaster.intersectObject(logo);
+
+    if (intersects.length > 0) {
+        console.log('Logo clicked!');
+        logo.material.color.set(0xff0000)
+    }
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    if (logo) {
+        const time = clock.getElapsedTime();
+        logo.position.y = 1 + Math.sin(time) * 0.5;
+    }
+
+    renderer.render(scene, camera);
+}
+
+animate();
+
 
 const fbxLoader = new FBXLoader();
 fbxLoader.load(
@@ -102,12 +159,6 @@ fbxLoader.load(
       fastRunAction = mixer.clipAction(FastRun.animations[0]);
     });
   },
-  (progress) => {
-    console.log(`Loading: ${(progress.loaded / progress.total) * 100}%`);
-  },
-  (error) => {
-    console.error('Error loading FBX:', error);
-  }
 );
 
 function switchAnimation(toAction: AnimationAction) {
@@ -176,5 +227,7 @@ function animationLoop(t: number) {
 
   renderer.render(scene, camera);
 }
+
+
 
 renderer.setAnimationLoop(animationLoop);
