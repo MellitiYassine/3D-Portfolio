@@ -2,11 +2,11 @@ import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { AnimationMixer, AnimationAction } from 'three';
+import { loadAndAnimateAngularModel, loadAndAnimateSpringModel } from './fbx.instanicate';
 
 console.clear();
 
 var scene = new THREE.Scene();
-scene.background = new THREE.Color('gainsboro');
 
 var camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight);
 camera.position.set(0, 100, 100);
@@ -34,14 +34,12 @@ context.fillRect(0, 0, canvas.width, canvas.height);
 const texture = new THREE.CanvasTexture(canvas);
 scene.background = texture;
 
-
-
 const light = new THREE.AmbientLight(0xffffff, 3);
 light.position.set(10, 10, 10);
 scene.add(light);
 
 const CAMERA_DISTANCE = 20,
-  CAMERA_ALTITUDE = 6,
+  CAMERA_ALTITUDE = 20,
   AXIS_Y = new THREE.Vector3(0, 1, 0);
 
 var keyHash: Record<string, boolean> = {};
@@ -69,14 +67,16 @@ let hasMoved = false;
 let logo: any;
 
 
+loadAndAnimateAngularModel(scene, renderer, camera);
+loadAndAnimateSpringModel(scene, renderer, camera)
 
 const textureLoader = new THREE.TextureLoader();
 textureLoader.load('textures/ADS-logo.png', (texture) => {
-    const material = new THREE.MeshBasicMaterial({ map: texture });
-    const geometry = new THREE.PlaneGeometry(2, 2);
-    logo = new THREE.Mesh(geometry, material);
-    logo.position.set(5, 1, 5);
-    scene.add(logo);
+  const material = new THREE.MeshBasicMaterial({ map: texture });
+  const geometry = new THREE.PlaneGeometry(2, 2);
+  logo = new THREE.Mesh(geometry, material);
+  logo.position.set(5, 1, 5);
+  // scene.add(logo);
 });
 
 const clock = new THREE.Clock();
@@ -88,78 +88,63 @@ window.addEventListener('mousemove', onMouseMove, false);
 window.addEventListener('click', onMouseClick, false);
 
 function onMouseMove(event: any) {
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-    raycaster.setFromCamera(mouse, camera);
+  raycaster.setFromCamera(mouse, camera);
 
-    const intersects = raycaster.intersectObject(logo);
+  const intersects = raycaster.intersectObject(logo);
 
-    if (intersects.length > 0) {
-        document.body.style.cursor = 'pointer'; 
-    } else {
-        document.body.style.cursor = 'auto'; 
-    }
+  if (intersects.length > 0) {
+    document.body.style.cursor = 'pointer';
+  } else {
+    document.body.style.cursor = 'auto';
+  }
 }
 
 function onMouseClick(event: any) {
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-    raycaster.setFromCamera(mouse, camera);
+  raycaster.setFromCamera(mouse, camera);
 
-    const intersects = raycaster.intersectObject(logo);
+  const intersects = raycaster.intersectObject(logo);
 
-    if (intersects.length > 0) {
-        console.log('Logo clicked!');
-        logo.material.color.set(0xff0000)
-    }
+  if (intersects.length > 0) {
+    console.log('Logo clicked!');
+    logo.material.color.set(0xff0000);
+  }
 }
-
-function animate() {
-    requestAnimationFrame(animate);
-    if (logo) {
-        const time = clock.getElapsedTime();
-        logo.position.y = 1 + Math.sin(time) * 0.5;
-    }
-
-    renderer.render(scene, camera);
-}
-
-animate();
 
 
 const fbxLoader = new FBXLoader();
-fbxLoader.load(
-  'models/Ty.fbx',
-  (fbx) => {
-    character = fbx;
-    character.scale.set(0.01, 0.01, 0.01);
-    scene.add(character);
+fbxLoader.load('models/Ty.fbx', (fbx) => {
+  character = fbx;
+  character.scale.set(0.01, 0.01, 0.01);
+  scene.add(character);
 
-    mixer = new AnimationMixer(character);
+  mixer = new AnimationMixer(character);
 
-    fbxLoader.load('animations/Greeting.fbx', (run) => {
-      greetingAction = mixer.clipAction(run.animations[0]);
-      greetingAction.play();
-      activeAction = greetingAction;
-    });
+  fbxLoader.load('animations/Greeting.fbx', (run) => {
+    greetingAction = mixer.clipAction(run.animations[0]);
+    greetingAction.play();
+    activeAction = greetingAction;
+  });
 
-    fbxLoader.load('animations/Idle.fbx', (idle) => {
-      idleAction = mixer.clipAction(idle.animations[0]);
-      idleAction.play();
-      activeAction = idleAction;
-    });
+  fbxLoader.load('animations/Idle.fbx', (idle) => {
+    idleAction = mixer.clipAction(idle.animations[0]);
+    idleAction.play();
+    activeAction = idleAction;
+  });
 
-    fbxLoader.load('animations/SlowRun.fbx', (run) => {
-      slowRunAction = mixer.clipAction(run.animations[0]);
-    });
+  fbxLoader.load('animations/SlowRun.fbx', (run) => {
+    slowRunAction = mixer.clipAction(run.animations[0]);
+  });
 
-    fbxLoader.load('animations/FastRun.fbx', (FastRun) => {
-      fastRunAction = mixer.clipAction(FastRun.animations[0]);
-    });
-  },
-);
+  fbxLoader.load('animations/FastRun.fbx', (FastRun) => {
+    fastRunAction = mixer.clipAction(FastRun.animations[0]);
+  });
+});
 
 function switchAnimation(toAction: AnimationAction) {
   if (activeAction !== toAction) {
@@ -227,7 +212,5 @@ function animationLoop(t: number) {
 
   renderer.render(scene, camera);
 }
-
-
 
 renderer.setAnimationLoop(animationLoop);
