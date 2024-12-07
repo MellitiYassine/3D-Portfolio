@@ -3,7 +3,13 @@ import { AnimationAction, AnimationMixer } from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { loadAndAnimateAngularModel } from './fbx.instantiate';
 import { initKeyboardEventListeners, initMouseEventListeners } from './event';
-import { AXIS_Y, CAMERA_ALTITUDE, CAMERA_DISTANCE } from './constants';
+import {
+  AXIS_Y,
+  CAMERA_ALTITUDE,
+  CAMERA_DISTANCE,
+  CAMERA_SPEED,
+  LOOK_AT_STEP,
+} from './constants';
 import { lerpAngle } from './movement';
 import {
   createCamera,
@@ -27,6 +33,8 @@ let hasMoved = false;
 const mouse = new THREE.Vector2();
 const state = { isDragging: false, isCameraAttached: true };
 const fbxLoader = new FBXLoader();
+let isCameraAnimating = false;
+let firstTimeCameraPointingToCharacter = true;
 
 const scene = createScene();
 const camera = createCamera();
@@ -77,17 +85,116 @@ function switchAnimation(toAction: AnimationAction) {
   }
 }
 
-function animationLoop(t: number) {
-  characterDir.set(0, 0, 0);
+function animationLoop() {
+  resetCharacterDirection();
 
+  const forward = getForwardDirection();
+  const right = getRightDirection(forward);
+
+  updateCharacterMovement(forward, right);
+
+  if (character) {
+    updateCharacterPosition();
+    updateCharacterRotation();
+    updateCameraPosition();
+  }
+
+  updateAnimationMixer();
+  renderScene();
+}
+
+function resetCharacterDirection() {
+  characterDir.set(0, 0, 0);
+}
+
+function getForwardDirection() {
   const forward = new THREE.Vector3();
   camera.getWorldDirection(forward);
   forward.y = 0;
   forward.normalize();
+  return forward;
+}
 
+function getRightDirection(forward: THREE.Vector3) {
   const right = new THREE.Vector3();
   right.crossVectors(forward, AXIS_Y).normalize();
+  return right;
+}
 
+function updateCharacterMovement(forward: THREE.Vector3, right: THREE.Vector3) {
+  getCharacterControllerAndAnimations(forward, right);
+}
+
+function updateCharacterPosition() {
+  character.position.addScaledVector(characterDir, characterSpeed * 0.03);
+}
+
+function updateCharacterRotation() {
+  const targetRotationY = Math.atan2(characterDir.x, characterDir.z);
+  character.rotation.y = lerpAngle(character.rotation.y, targetRotationY, 0.1);
+}
+
+
+function updateCameraPosition(): void {
+  if (!state.isCameraAttached) return;
+
+  const targetLookAt = character.position;
+
+  if (!isCameraAnimating) {
+    isCameraAnimating = true;
+    animateCameraLinear(targetLookAt);
+  }
+}
+
+function animateCameraLinear(targetLookAt: THREE.Vector3): void {
+  const targetPosition = character.position
+    .clone()
+    .add(new THREE.Vector3(0, CAMERA_ALTITUDE, CAMERA_DISTANCE));
+
+  const direction = targetPosition.clone().sub(camera.position).normalize();
+  const distanceToMove = Math.min(
+    CAMERA_SPEED,
+    camera.position.distanceTo(targetPosition)
+  );
+
+  camera.position.add(direction.multiplyScalar(distanceToMove));
+
+  const currentLookAt = camera.getWorldDirection(new THREE.Vector3());
+  const newLookAt = targetLookAt.clone().sub(camera.position).normalize();
+  const interpolatedLookAt = currentLookAt.lerp(newLookAt, LOOK_AT_STEP);
+  camera.lookAt(camera.position.clone().add(interpolatedLookAt));
+
+  if (camera.position.distanceTo(targetPosition) > 0.01) {
+    requestAnimationFrame(() => animateCameraLinear(targetLookAt));
+
+    if (firstTimeCameraPointingToCharacter) {
+      firstTimeCameraPointingToCharacter = false;
+      camera.lookAt(targetLookAt);
+    }
+  } else {
+    camera.position.copy(targetPosition);
+    camera.lookAt(targetLookAt);
+    isCameraAnimating = false;
+  }
+}
+
+function updateAnimationMixer() {
+  if (mixer) mixer.update(0.016);
+}
+
+function renderScene() {
+  renderer.render(scene, camera);
+}
+
+function getCharacterControllerAndAnimations(
+  forward: THREE.Vector3,
+  right: THREE.Vector3
+) {
+  getCharacterController(forward, right);
+  getCharacterAnimations();
+}
+
+function getCharacterController(forward: THREE.Vector3, right: THREE.Vector3) {
   if (keyHash['ArrowUp']) {
     state.isCameraAttached = true;
     characterDir.add(forward);
@@ -104,7 +211,8 @@ function animationLoop(t: number) {
     state.isCameraAttached = true;
     characterDir.sub(right);
   }
-
+}
+function getCharacterAnimations() {
   if (characterDir.length() > 0) {
     hasMoved = true;
     if (keyHash['Shift']) {
@@ -123,30 +231,6 @@ function animationLoop(t: number) {
       switchAnimation(idleAction);
     }
   }
-
-  if (character) {
-    character.position.addScaledVector(characterDir, characterSpeed * 0.03);
-
-    const targetRotationY = Math.atan2(characterDir.x, characterDir.z);
-    character.rotation.y = lerpAngle(
-      character.rotation.y,
-      targetRotationY,
-      0.1
-    );
-    if (state.isCameraAttached) {
-      camera.position.lerp(
-        character.position
-          .clone()
-          .add(new THREE.Vector3(0, CAMERA_ALTITUDE, CAMERA_DISTANCE)),
-        0.01
-      );
-      camera.lookAt(character.position);
-    }
-  }
-
-  if (mixer) mixer.update(0.016);
-
-  renderer.render(scene, camera);
 }
 
 renderer.setAnimationLoop(animationLoop);
