@@ -1,6 +1,7 @@
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import * as THREE from 'three';
 import { floatingAnimation } from './animation';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 type Transform = {
   position?: [number, number, number];
@@ -70,23 +71,101 @@ export async function loadAndAnimateAngularModel(
 }
 
 export async function loadAndAnimateSpringModel(
-    scene: THREE.Scene,
-    renderer: THREE.Renderer,
-    camera: THREE.Camera
-  ) {
-    try {
-      const fbx = await loadFBXModel('models/java.fbx', {
-        position: [5, 5, 3],
-        scale: [0.1, 0.1, 0.1],
-        rotation: [0, 0, 0],
-      });
-      scene.add(fbx);
-      floatingAnimation(fbx);
-      renderer.render(scene, camera);
-    } catch (error) {
-      console.error('Failed to load and animate the model:', error);
-    }
+  scene: THREE.Scene,
+  renderer: THREE.Renderer,
+  camera: THREE.Camera
+) {
+  try {
+    const fbx = await loadFBXModel('models/java.fbx', {
+      position: [5, 5, 3],
+      scale: [0.1, 0.1, 0.1],
+      rotation: [0, 0, 0],
+    });
+    scene.add(fbx);
+    floatingAnimation(fbx);
+    renderer.render(scene, camera);
+  } catch (error) {
+    console.error('Failed to load and animate the model:', error);
   }
-  
+}
+
+export async function loadNameModel(
+  scene: THREE.Scene,
+  renderer: THREE.WebGLRenderer,
+  camera: THREE.Camera
+) {
+  const loader = new GLTFLoader();  
+
+  const loadModel = (url: string) => {
+    return new Promise<THREE.Group>((resolve, reject) => {
+      loader.load(
+        url,
+        (glb) => resolve(glb.scene),
+        undefined,
+        (error) => reject(error)
+      );
+    });
+  };
+
+  try {
+    const glb = await loadModel('models/name.glb');
+
+    glb.position.set(5, 0, 0);
+    glb.scale.set(3, 3, 3);
+    glb.rotation.set(-Math.PI / 12, 0, 0);
+
+    glb.castShadow = true;
+    glb.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      }
+    });
+    scene.add(glb);
+    renderer.render(scene, camera);
+  } catch (error) {
+    console.error('Failed to load and animate the model:', error);
+  }
+}
 
 
+export async function loadJobModel(
+  scene: THREE.Scene,
+  renderer: THREE.WebGLRenderer,
+  camera: THREE.Camera
+) {
+  const loader = new GLTFLoader();  
+
+  const loadModel = (url: string) => {
+    return new Promise<THREE.Group>((resolve, reject) => {
+      loader.load(
+        url,
+        (glb) => resolve(glb.scene),
+        undefined,
+        (error) => reject(error)
+      );
+    });
+  };
+
+  try {
+    const glb = await loadModel('models/job.glb');
+
+    glb.position.set(15, 0, 2);
+    glb.scale.set(1, 1, 1);
+    glb.rotation.set(-Math.PI / 2, 0, 0);
+
+    glb.castShadow = true;
+    glb.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      }
+    });
+    scene.add(glb);
+    renderer.render(scene, camera);
+  } catch (error) {
+    console.error('Failed to load and animate the model:', error);
+  }
+}

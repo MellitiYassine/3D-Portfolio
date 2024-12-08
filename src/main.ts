@@ -1,7 +1,11 @@
 import * as THREE from 'three';
 import { AnimationAction, AnimationMixer } from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
-import { loadAndAnimateAngularModel } from './fbx.instantiate';
+import {
+  loadAndAnimateAngularModel,
+  loadJobModel,
+  loadNameModel,
+} from './fbx.instantiate';
 import { initKeyboardEventListeners, initMouseEventListeners } from './event';
 import {
   AXIS_Y,
@@ -16,8 +20,7 @@ import {
   createLights,
   createRenderer,
   createScene,
-  createTexture,
-} from './scene.config';
+} from './scene';
 
 let character: THREE.Object3D;
 let characterSpeed = 0;
@@ -40,17 +43,29 @@ const scene = createScene();
 const camera = createCamera();
 const renderer = createRenderer();
 const light = createLights();
-const background = createTexture();
+// const background = createTexture();
 
-scene.add(light);
-scene.background = background;
+scene.add(...light);
+// scene.background = background;
 
 loadAndAnimateAngularModel(scene, renderer, camera);
+loadNameModel(scene, renderer, camera);
+loadJobModel(scene, renderer, camera);
 initMouseEventListeners(camera, renderer, mouse, state);
 initKeyboardEventListeners(keyHash);
 
 fbxLoader.load('models/Ty.fbx', (fbx) => {
   character = fbx;
+  character.castShadow = true;
+  character.receiveShadow = true;
+  character.traverse((child) => {
+    if ((child as THREE.Mesh).isMesh) {
+      const mesh = child as THREE.Mesh;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    }
+  });
+
   character.scale.set(0.01, 0.01, 0.01);
   scene.add(character);
 
@@ -134,7 +149,6 @@ function updateCharacterRotation() {
   character.rotation.y = lerpAngle(character.rotation.y, targetRotationY, 0.1);
 }
 
-
 function updateCameraPosition(): void {
   if (!state.isCameraAttached) return;
 
@@ -212,6 +226,7 @@ function getCharacterController(forward: THREE.Vector3, right: THREE.Vector3) {
     characterDir.sub(right);
   }
 }
+
 function getCharacterAnimations() {
   if (characterDir.length() > 0) {
     hasMoved = true;

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MAX_FOV, MIN_FOV, ZOOM_SPEED } from './constants';
+import { CAMERA_MOUSE_SPEED, MAX_FOV, MIN_FOV, ZOOM_SPEED } from './constants';
 
 export function initMouseEventListeners(
   camera: THREE.PerspectiveCamera,
@@ -36,8 +36,8 @@ function onMouseMove(
 
   if (state.isDragging) {
     state.isCameraAttached = false;
-    camera.position.x -= (event.movementX / window.innerWidth) * 10;
-    camera.position.z -= (event.movementY / window.innerHeight) * 10;
+    camera.position.x -= (event.movementX / window.innerWidth) * CAMERA_MOUSE_SPEED;
+    camera.position.z -= (event.movementY / window.innerHeight) * CAMERA_MOUSE_SPEED;
   }
 }
 
@@ -59,7 +59,11 @@ function onMouseScroll(
 
   function smoothZoom() {
     if (currentFov !== null) {
-      currentFov = THREE.MathUtils.lerp(currentFov, clampedTargetFov, ZOOM_SPEED);
+      currentFov = THREE.MathUtils.lerp(
+        currentFov,
+        clampedTargetFov,
+        ZOOM_SPEED
+      );
 
       if (Math.abs(currentFov - clampedTargetFov) < 0.01) {
         currentFov = clampedTargetFov;
