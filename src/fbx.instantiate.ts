@@ -94,7 +94,7 @@ export async function loadNameModel(
   renderer: THREE.WebGLRenderer,
   camera: THREE.Camera
 ) {
-  const loader = new GLTFLoader();  
+  const loader = new GLTFLoader();
 
   const loadModel = (url: string) => {
     return new Promise<THREE.Group>((resolve, reject) => {
@@ -129,13 +129,52 @@ export async function loadNameModel(
   }
 }
 
+export async function loadEducationModel(
+  scene: THREE.Scene,
+  renderer: THREE.WebGLRenderer,
+  camera: THREE.Camera
+) {
+  const loader = new GLTFLoader();
+
+  const loadModel = (url: string) => {
+    return new Promise<THREE.Group>((resolve, reject) => {
+      loader.load(
+        url,
+        (glb) => resolve(glb.scene),
+        undefined,
+        (error) => reject(error)
+      );
+    });
+  };
+
+  try {
+    const glb = await loadModel('models/education.glb');
+
+    glb.position.set(-8, 4, 2);
+    glb.scale.set(3, 3, 3);
+    glb.rotation.set(Math.PI / 2, 0, 0);
+
+    glb.castShadow = true;
+    glb.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      }
+    });
+    scene.add(glb);
+    renderer.render(scene, camera);
+  } catch (error) {
+    console.error('Failed to load and animate the model:', error);
+  }
+}
 
 export async function loadJobModel(
   scene: THREE.Scene,
   renderer: THREE.WebGLRenderer,
   camera: THREE.Camera
 ) {
-  const loader = new GLTFLoader();  
+  const loader = new GLTFLoader();
 
   const loadModel = (url: string) => {
     return new Promise<THREE.Group>((resolve, reject) => {
@@ -153,7 +192,7 @@ export async function loadJobModel(
 
     glb.position.set(15, 0, 2);
     glb.scale.set(1, 1, 1);
-    glb.rotation.set(-Math.PI / 2, 0, 0);
+    glb.rotation.set(-Math.PI / 2.5, 0, 0);
 
     glb.castShadow = true;
     glb.traverse((child) => {

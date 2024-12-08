@@ -1,22 +1,34 @@
 import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
 
-export function createScene(): THREE.Scene {
+export function createScene(worldPhysics: CANNON.World): THREE.Scene {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x000000); 
-  const backgroundPlane = createBackgroundPlane();
+  scene.background = new THREE.Color(0x000000);
+  const backgroundPlane = createBackgroundPlane(worldPhysics);
   scene.add(backgroundPlane);
   return scene;
 }
 
-export function createBackgroundPlane(): THREE.Mesh {
-  const geometry = new THREE.PlaneGeometry(10000, 10000); 
+export function createBackgroundPlane(worldPhysics: CANNON.World): THREE.Mesh {
+  const geometry = new THREE.PlaneGeometry(10000, 10000);
   const material = new THREE.MeshStandardMaterial({ color: 0x000000 });
   const plane = new THREE.Mesh(geometry, material);
-  
+
   plane.receiveShadow = true;
-  plane.rotation.x = -Math.PI / 2
-  plane.position.y = -0.1;
-  
+  plane.rotation.x = -Math.PI / 2;
+  plane.position.y = 0;
+
+  const shape = new CANNON.Plane();
+  const planeBody = new CANNON.Body({
+    mass: 0,
+    position: new CANNON.Vec3(plane.position.x, plane.position.y, plane.position.z),
+    quaternion: new CANNON.Quaternion().setFromEuler(plane.rotation.x, plane.rotation.y, plane.rotation.z) // Align rotation with THREE.js mesh
+  });
+
+  planeBody.addShape(shape);
+
+  worldPhysics.addBody(planeBody);
+
   return plane;
 }
 
@@ -35,15 +47,10 @@ export function createRenderer(): THREE.WebGLRenderer {
   return renderer;
 }
 
-
 export function createLights(): THREE.Light[] {
-  // Create Directional Light
   const directionalLight = new THREE.DirectionalLight(0xffffff, 4);
-  
-  // Set the position of the light (adjust to change the direction)
-  directionalLight.position.set(1, 10, 1);  // Light will come from (10, 10, 10)
-  
-  // Set shadow properties
+
+  directionalLight.position.set(1, 10, 1);
   directionalLight.castShadow = true;
   directionalLight.shadow.mapSize.width = 1024;
   directionalLight.shadow.mapSize.height = 1024;
@@ -53,21 +60,14 @@ export function createLights(): THREE.Light[] {
   directionalLight.shadow.camera.right = 50;
   directionalLight.shadow.camera.top = 50;
   directionalLight.shadow.camera.bottom = -50;
-  
-  // Optionally rotate the light to adjust the angle (e.g., 45 degrees around the Y axis)
-  directionalLight.rotation.y = Math.PI / 4;  // Rotate light by 45 degrees
 
-  // Create Ambient Light
-  const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);  // Soft light that illuminates the scene
+  directionalLight.rotation.y = Math.PI / 4;
 
-  // Create a target object to adjust where the directional light is pointing
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
   const target = new THREE.Object3D();
-  target.position.set(0, 0, 0);  // Target the origin (adjustable)
-
-  // Set the target of the directional light
+  target.position.set(0, 0, 0);
   directionalLight.target = target;
 
-  // Return the lights array
   return [directionalLight, ambientLight];
 }
 

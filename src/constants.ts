@@ -10,3 +10,5 @@ export const ZOOM_SPEED: number = 0.3;
 export const MIN_FOV: number = 10;
 export const MAX_FOV: number = 50;
 export const CAMERA_MOUSE_SPEED = 50
+export const PUSH_FORCE = 0.1
+export const GRAVITY = -9.82;;

@@ -3,6 +3,7 @@ import { AnimationAction, AnimationMixer } from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import {
   loadAndAnimateAngularModel,
+  loadEducationModel,
   loadJobModel,
   loadNameModel,
 } from './fbx.instantiate';
@@ -13,6 +14,7 @@ import {
   CAMERA_DISTANCE,
   CAMERA_SPEED,
   LOOK_AT_STEP,
+  PUSH_FORCE,
 } from './constants';
 import { lerpAngle } from './movement';
 import {
@@ -21,6 +23,8 @@ import {
   createRenderer,
   createScene,
 } from './scene';
+import * as CANNON from 'cannon-es';
+import { createWorldPhysics } from './physics';
 
 let character: THREE.Object3D;
 let characterSpeed = 0;
@@ -39,20 +43,23 @@ const fbxLoader = new FBXLoader();
 let isCameraAnimating = false;
 let firstTimeCameraPointingToCharacter = true;
 
-const scene = createScene();
+const worldPhysics = createWorldPhysics();
+const scene = createScene(worldPhysics);
 const camera = createCamera();
 const renderer = createRenderer();
 const light = createLights();
-// const background = createTexture();
 
 scene.add(...light);
-// scene.background = background;
 
 loadAndAnimateAngularModel(scene, renderer, camera);
 loadNameModel(scene, renderer, camera);
+
+loadEducationModel(scene, renderer, camera);
 loadJobModel(scene, renderer, camera);
 initMouseEventListeners(camera, renderer, mouse, state);
 initKeyboardEventListeners(keyHash);
+
+let characterBody: CANNON.Body;
 
 fbxLoader.load('models/Ty.fbx', (fbx) => {
   character = fbx;
@@ -70,6 +77,16 @@ fbxLoader.load('models/Ty.fbx', (fbx) => {
   scene.add(character);
 
   mixer = new AnimationMixer(character);
+
+  const characterShape = new CANNON.Sphere(0.5); 
+  characterBody = new CANNON.Body({ mass: 70 }); 
+  characterBody.addShape(characterShape);
+  characterBody.position.set(
+    character.position.x,
+    character.position.y,
+    character.position.z
+  );
+  worldPhysics.addBody(characterBody);
 
   fbxLoader.load('animations/Greeting.fbx', (run) => {
     greetingAction = mixer.clipAction(run.animations[0]);
@@ -92,30 +109,32 @@ fbxLoader.load('models/Ty.fbx', (fbx) => {
   });
 });
 
+const clock = new THREE.Clock();
+let delta;
+
+const normalMaterial = new THREE.MeshNormalMaterial();
+const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+const cubeMesh = new THREE.Mesh(cubeGeometry, normalMaterial);
+cubeMesh.position.set(-7, 5, 0);
+cubeMesh.castShadow = true;
+scene.add(cubeMesh);
+
+const cubeShape = new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5));
+const cubeBody = new CANNON.Body({ mass: 1000 });
+cubeBody.addShape(cubeShape);
+cubeBody.position.set(
+  cubeMesh.position.x,
+  cubeMesh.position.y,
+  cubeMesh.position.z
+);
+worldPhysics.addBody(cubeBody);
+
 function switchAnimation(toAction: AnimationAction) {
   if (activeAction !== toAction) {
     activeAction.fadeOut(0.5);
     toAction.reset().fadeIn(0.5).play();
     activeAction = toAction;
   }
-}
-
-function animationLoop() {
-  resetCharacterDirection();
-
-  const forward = getForwardDirection();
-  const right = getRightDirection(forward);
-
-  updateCharacterMovement(forward, right);
-
-  if (character) {
-    updateCharacterPosition();
-    updateCharacterRotation();
-    updateCameraPosition();
-  }
-
-  updateAnimationMixer();
-  renderScene();
 }
 
 function resetCharacterDirection() {
@@ -142,6 +161,11 @@ function updateCharacterMovement(forward: THREE.Vector3, right: THREE.Vector3) {
 
 function updateCharacterPosition() {
   character.position.addScaledVector(characterDir, characterSpeed * 0.03);
+  characterBody.position.set(
+    character.position.x,
+    character.position.y,
+    character.position.z
+  );
 }
 
 function updateCharacterRotation() {
@@ -248,4 +272,72 @@ function getCharacterAnimations() {
   }
 }
 
-renderer.setAnimationLoop(animationLoop);
+function animationLoop() {
+  resetCharacterDirection();
+
+  const forward = getForwardDirection();
+  const right = getRightDirection(forward);
+
+  updateCharacterMovement(forward, right);
+
+  if (character) {
+    updateCharacterPosition();
+    updateCharacterRotation();
+    updateCameraPosition();
+  }
+
+  delta = clock.getDelta();
+  worldPhysics.step(delta);
+
+  if (characterBody && character) {
+    characterBody.position.set(
+      character.position.x,
+      character.position.y,
+      character.position.z
+    );
+    characterBody.quaternion.set(
+      character.quaternion.x,
+      character.quaternion.y,
+      character.quaternion.z,
+      character.quaternion.w
+    );
+  }
+
+  cubeMesh.position.set(
+    cubeBody.position.x,
+    cubeBody.position.y,
+    cubeBody.position.z
+  );
+  cubeMesh.quaternion.set(
+    cubeBody.quaternion.x,
+    cubeBody.quaternion.y,
+    cubeBody.quaternion.z,
+    cubeBody.quaternion.w
+  );
+
+  if (characterBody && cubeBody) {
+    const distance = characterBody.position.distanceTo(cubeBody.position);
+    const collisionThreshold = 0.7; // Adjust based on object sizes
+    if (distance < collisionThreshold) {
+      const pushDirection = new CANNON.Vec3(
+        cubeBody.position.x - characterBody.position.x,
+        0, // No vertical push
+        cubeBody.position.z - characterBody.position.z
+      );
+
+      pushDirection.x *= PUSH_FORCE;
+      pushDirection.y *= PUSH_FORCE;
+      pushDirection.z *= PUSH_FORCE;
+
+      cubeBody.applyImpulse(pushDirection, cubeBody.position);
+    }
+  }
+
+  updateAnimationMixer();
+
+  renderScene();
+
+  requestAnimationFrame(animationLoop);
+}
+
+animationLoop();
